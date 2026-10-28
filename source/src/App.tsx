@@ -1,7 +1,9 @@
 import PasswordRecovery, { RECOVERY_KEY, recoveryPending, clearRecovery } from './components/PasswordRecovery'
 import { isAbsence } from './lib/absences'
 import { getPlanning, usePlanning, setPlanning, DEFAULT_PLANNING, type PlanningConfig } from './lib/planningConfig'
+import { EVENT_IDS, eventBackground, normalizeCalendarAppearance } from './lib/calendarAppearance'
 import PlanningSettings from './components/PlanningSettings'
+import CalendarAppearanceSettings from './components/CalendarAppearanceSettings'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { Session } from '@supabase/supabase-js'
 import { addDays, addMonths, endOfMonth, format, getDay, isSameDay, parseISO, startOfMonth } from 'date-fns'
@@ -150,6 +152,11 @@ function AuthScreen({ onDemo }: { onDemo: () => void }) {
 
 function Workspace({ session, demo, onExitDemo }: { session: Session | null; demo: boolean; onExitDemo: () => void }) {
   const planning=usePlanning()
+  useEffect(()=>{
+    const appearance=normalizeCalendarAppearance(planning.calendar_appearance)
+    EVENT_IDS.forEach(id=>document.documentElement.style.setProperty(`--absence-bg-${id.toLowerCase()}`,eventBackground(appearance[id])))
+    return ()=>EVENT_IDS.forEach(id=>document.documentElement.style.removeProperty(`--absence-bg-${id.toLowerCase()}`))
+  },[planning.calendar_appearance])
   const loadSequence=useRef(0)
   useEffect(()=>{if(demo)setPlanning(DEFAULT_PLANNING)},[demo])
   const [currentDay,setCurrentDay]=useState(()=>format(new Date(),'yyyy-MM-dd'))
@@ -416,7 +423,7 @@ function Workspace({ session, demo, onExitDemo }: { session: Session | null; dem
       {view === 'folders' && <FoldersView profile={activeProfile} staff={staff} demo={demo} />}
       {view === 'team' && isSupervisor && <TeamView coverageProfiles={coverageProfiles} onCoverageChange={setCoverageProfiles} staff={staff} consultations={consultations} demo={demo} onChange={setStaff} reload={loadData} />}
       {view === 'consultations' && isSupervisor && <section className="content-section"><div className="section-heading"><div><span className="eyebrow">Administración</span><h1>Consultas</h1><p>Gestiona horarios, profesionales necesarios y periodos de suspensión de cada consulta.</p></div></div><ConsultationManager staff={staff} consultations={consultations.filter(c=>!isAbsence(c.id))} demo={demo} onChange={setConsultations} reload={loadData} /></section>}
-      {view === 'settings' && isSupervisor && <SettingsView onNavigate={setView} onSave={savePlanning} />}
+      {view === 'settings' && isSupervisor && <SettingsView demo={demo} onNavigate={setView} onSave={savePlanning} />}
       {view === 'profile' && <ProfileView coverageProfile={coverageProfiles.find(p=>p.staff_id===activeProfile.id)} onCoverageChange={setCoverageProfiles} consultations={consultations} profile={activeProfile} demo={demo} onUpdated={(key) => { setProfile(p => p ? { ...p, mascot_key: key } : p); setStaff(p => p.map(s => s.id === activeProfile.id ? { ...s, mascot_key: key } : s)) }} reload={loadData} />}
     </main>
     <nav className="mobile-bottom-nav" aria-label="Navegación principal móvil">{mobileItems.map(([key,Icon,label])=>{
@@ -844,10 +851,11 @@ function TeamView({ coverageProfiles, onCoverageChange, staff, consultations, de
   </section>
 }
 
-function SettingsView({onNavigate,onSave}:{onNavigate:(view:View)=>void;onSave:(config:PlanningConfig)=>Promise<string|null>}) {
+function SettingsView({demo,onNavigate,onSave}:{demo:boolean;onNavigate:(view:View)=>void;onSave:(config:PlanningConfig)=>Promise<string|null>}) {
   return <section className="content-section"><div className="section-heading"><div><span className="eyebrow">Administración</span><h1>Configuración</h1><p>Consulta las condiciones actuales de planificación y accede a los ajustes de tu perfil.</p></div></div>
     <div className="settings-grid">
       <PlanningSettings onSave={onSave}/>
+      <CalendarAppearanceSettings demo={demo}/>
       <section className="panel"><h2><Check size={20}/> Publicación del cuadrante</h2><p>Los cambios se guardan en borrador. El equipo ve la última versión publicada de cada mes.</p><p className="helper">Revisa la cobertura y publica desde el cuadrante cuando esté listo.</p><button className="soft-button" onClick={()=>onNavigate('history')}>Ver historial de cambios</button></section>
 
       <section className="panel"><h2><Settings size={20}/> Otros ajustes</h2><div className="settings-shortcuts"><div><strong>Horarios y cobertura</strong><p>Las reglas, cadencias y suspensiones están en Consultas.</p><button className="soft-button" onClick={()=>onNavigate('consultations')}>Gestionar consultas</button></div><div><strong>Tu ficha personal</strong><p>Consulta tu perfil y cambia tu mascota.</p><button className="soft-button" onClick={()=>onNavigate('profile')}>Abrir mi ficha</button></div></div></section>

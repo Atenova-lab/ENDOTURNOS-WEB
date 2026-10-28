@@ -2,7 +2,8 @@ import { useSyncExternalStore } from 'react'
 import { addMonths, endOfMonth, format, parseISO } from 'date-fns'
 import { es } from 'date-fns/locale'
 import { HOLIDAYS } from '../data/constants'
-export interface PlanningConfig {id:number;start_date:string;end_date:string;holidays:Record<string,string>;updated_at:string}
+import type { CalendarAppearance } from './calendarAppearance'
+export interface PlanningConfig {id:number;start_date:string;end_date:string;holidays:Record<string,string>;calendar_appearance?:CalendarAppearance;updated_at:string}
 export const DEFAULT_PLANNING:PlanningConfig={id:1,start_date:'2026-01-01',end_date:'2026-12-31',holidays:HOLIDAYS,updated_at:''}
 let current:PlanningConfig=DEFAULT_PLANNING
 const listeners=new Set<()=>void>()

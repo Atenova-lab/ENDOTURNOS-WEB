@@ -1200,23 +1200,31 @@ box-shadow:0 10px 22px rgba(32,37,35,.16);transform:rotate(calc((var(--sheet-ind
 
 
 /* Ausencias y descansos: lectura inmediata en cuadrante. */
-.shift-cell.absence-vac { background:#d8f1e5; }
-.shift-cell.absence-perm { background:#eadcf0; }
-.shift-cell.absence-for { background:#ffe3c7; }
-.shift-cell.absence-rest { background:#e3e5e6; }
-.shift-cell.absence-vac.closed { background:#d8f1e5; }
-.shift-cell.absence-perm.closed { background:#eadcf0; }
-.shift-cell.absence-for.closed { background:#ffe3c7; }
-.shift-cell.absence-rest.closed { background:#e3e5e6; }
+.shift-cell.absence-vac,.shift-cell.absence-vac.closed { background:var(--absence-bg-vac,#d8f1e5); }
+.shift-cell.absence-perm,.shift-cell.absence-perm.closed { background:var(--absence-bg-perm,#eadcf0); }
+.shift-cell.absence-for,.shift-cell.absence-for.closed { background:var(--absence-bg-for,#ffe3c7); }
+.shift-cell.absence-rest,.shift-cell.absence-rest.closed { background:var(--absence-bg-descanso,#e3e5e6); }
 .shift-cell.absence-vac:hover,.shift-cell.absence-perm:hover,.shift-cell.absence-for:hover,.shift-cell.absence-rest:hover { filter:brightness(.98); }
-.absence-preview-vac { background:#d8f1e5;color:#245b45; }
-.absence-preview-perm { background:#eadcf0;color:#674b78; }
-.absence-preview-for { background:#ffe3c7;color:#87501d; }
-.absence-preview-rest { background:#e3e5e6;color:#52595d; }
-.agenda-shift.agenda-absence-vac { background:#d8f1e580; }
-.agenda-shift.agenda-absence-perm { background:#eadcf080; }
-.agenda-shift.agenda-absence-for { background:#ffe3c780; }
-.agenda-shift.agenda-absence-rest { background:#e3e5e690; }
+.absence-preview-vac { background:var(--absence-bg-vac,#d8f1e5);color:#245b45; }
+.absence-preview-perm { background:var(--absence-bg-perm,#eadcf0);color:#674b78; }
+.absence-preview-for { background:var(--absence-bg-for,#ffe3c7);color:#87501d; }
+.absence-preview-rest { background:var(--absence-bg-descanso,#e3e5e6);color:#52595d; }
+.agenda-shift.agenda-absence-vac { background:var(--absence-bg-vac,#d8f1e5); }
+.agenda-shift.agenda-absence-perm { background:var(--absence-bg-perm,#eadcf0); }
+.agenda-shift.agenda-absence-for { background:var(--absence-bg-for,#ffe3c7); }
+.agenda-shift.agenda-absence-rest { background:var(--absence-bg-descanso,#e3e5e6); }
+.calendar-appearance-list{display:grid;gap:12px;margin:16px 0}
+.calendar-appearance-item{display:grid;gap:12px;padding:14px;border:1px solid #d9e7dd;border-radius:14px}
+.calendar-appearance-controls{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:12px;align-items:end}
+.calendar-appearance-controls label{display:grid;gap:6px;font-size:13px;font-weight:650}
+.calendar-appearance-controls input[type=color]{width:100%;height:40px;cursor:pointer}
+.calendar-appearance-controls input[type=range]{width:100%;accent-color:#277a59}
+.calendar-appearance-preview{display:block;padding:12px;border:1px solid #cbd9ce;border-radius:9px;font-size:13px;font-weight:700;color:#263e33}
+.calendar-appearance-actions{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:10px}
+.legend i[style*="#d8f1e5"]{background:var(--absence-bg-vac,#d8f1e5)!important}
+.legend i[style*="#eadcf0"]{background:var(--absence-bg-perm,#eadcf0)!important}
+.legend i[style*="#ffe3c7"]{background:var(--absence-bg-for,#ffe3c7)!important}
+.legend i[style*="#e3e5e6"]{background:var(--absence-bg-descanso,#e3e5e6)!important}
 
 
 /* Cadencias abiertas y acciones seguras de mes. */
