@@ -18,7 +18,7 @@ it('defaults to agenda on mobile, crosses months and keeps the selected day betw
  expect(host.querySelector('.agenda-view')).not.toBeNull();expect(host.querySelector('.month-matrix')).toBeNull()
  await click('Día siguiente');expect(host.querySelector<HTMLInputElement>('[aria-label="Día de la agenda"]')!.value).toBe('2026-11-01');expect(host.querySelector<HTMLInputElement>('[aria-label="Elegir mes"]')!.value).toBe('2026-11')
  await act(async()=>host.querySelector<HTMLButtonElement>('.agenda-shift')!.click());expect(select).toHaveBeenCalledWith({date:'2026-11-01',personId:'p',consultationId:'EN1'})
- expect(host.querySelector('.agenda-person header button')).toBeNull()
+ expect(host.querySelector('.agenda-person header button')).toBeNull();expect(host.querySelector('.quick-undo')).toBeNull()
  await click('Mes');expect(host.querySelectorAll('.day-head')).toHaveLength(30);await click('Agenda');expect(host.querySelector<HTMLInputElement>('[aria-label="Día de la agenda"]')!.value).toBe('2026-11-01')
  await date('2026-12-31');await click('Día siguiente');expect(host.querySelector<HTMLInputElement>('[aria-label="Día de la agenda"]')!.value).toBe('2027-01-01');await date('2026-10-01');await click('Día anterior');expect(host.querySelector<HTMLInputElement>('[aria-label="Día de la agenda"]')!.value).toBe('2026-09-30')
 })
