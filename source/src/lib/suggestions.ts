@@ -24,7 +24,7 @@ export function cadenceWeekCapacity(profile:CoverageProfile|undefined,date:strin
  }
  return minutes
 }
-export function suggestMonth(month:string,ctx:SuggestionContext){
+export function suggestMonth(month:string,ctx:SuggestionContext,onlyDate?:string){
  const {staff,consultations,assignments,requests,profiles,exceptions,planning}=ctx
  const from=month+'-01',until=format(endOfMonth(parseISO(from)),'yyyy-MM-dd')
  const warnings:string[]=[];const proposed:SuggestedShift[]=[];const working=[...assignments]
@@ -42,7 +42,7 @@ export function suggestMonth(month:string,ctx:SuggestionContext){
    const preferred=r.preferred_staff_ids??(c.preferred_staff_id?[c.preferred_staff_id]:[]);if(!preferred.length)warnings.push(`${c.label}: una regla no tiene profesional habitual; se usarán profesionales compatibles.`)
    const dates:string[]=[]
    for(let d=parseISO(from);format(d,'yyyy-MM-dd')<=until;d=addDays(d,1)){
-    const date=format(d,'yyyy-MM-dd');if(copyRuleCheck(c,date,r.start_time,r.end_time,consultations,planning).blocked.length||planning.holidays[date]||date<r.valid_from||date>r.valid_until||!r.weekdays.includes(getDay(d))||r.suspensions.some(s=>date>=s.from&&date<=s.to)||(!r.monthly&&differenceInCalendarWeeks(d,parseISO(r.anchor_date),{weekStartsOn:1})%r.every_weeks!==0))continue
+    const date=format(d,'yyyy-MM-dd');if(onlyDate&&date!==onlyDate)continue;if(copyRuleCheck(c,date,r.start_time,r.end_time,consultations,planning).blocked.length||planning.holidays[date]||date<r.valid_from||date>r.valid_until||!r.weekdays.includes(getDay(d))||r.suspensions.some(s=>date>=s.from&&date<=s.to)||(!r.monthly&&differenceInCalendarWeeks(d,parseISO(r.anchor_date),{weekStartsOn:1})%r.every_weeks!==0))continue
     dates.push(date)
    }
    if(dates.length)open=true
@@ -145,6 +145,7 @@ export function suggestMonth(month:string,ctx:SuggestionContext){
   if(!profile?.work_cadences?.length)continue
   for(let d=parseISO(from);format(d,'yyyy-MM-dd')<=until;d=addDays(d,1)){
    const date=format(d,'yyyy-MM-dd')
+   if(onlyDate&&date!==onlyDate)continue
    for(const cadence of cadenceIntervals(profile,date)){
     if(cadenceBlocked(person.id,date,cadence.start_time,cadence.end_time))continue
     addCadenceShift(person,profile,date,cadence.start_time,cadence.end_time)
@@ -158,5 +159,5 @@ export function suggestMonth(month:string,ctx:SuggestionContext){
   }
  }
  proposed.sort((a,b)=>a.work_date.localeCompare(b.work_date)||a.start_time.localeCompare(b.start_time)||a.consultation_id.localeCompare(b.consultation_id)||a.professional_id.localeCompare(b.professional_id))
- return {proposed,warnings,issues:buildCoverageIssues(working,consultations,requests,from,until,exceptions,planning.holidays)}
+ return {proposed,warnings,issues:buildCoverageIssues(working,consultations,requests,onlyDate??from,onlyDate??until,exceptions,planning.holidays)}
 }
