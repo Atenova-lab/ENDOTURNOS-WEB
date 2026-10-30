@@ -154,6 +154,11 @@ export interface RotaPublication {
  initial_snapshot: boolean
 }
 
+export interface CoverageReview {
+ id:string; issue_id:string; work_date:string; consultation_id:string; rule_id:string;
+ rule_snapshot:CoverageRule; created_by:string; created_by_name:string;
+ reviewed_at:string; reopened_at:string|null; reopened_by?:string|null
+}
 export interface CoverageException {
  id:string; work_date:string; consultation_id:string; rule_id:string; rule_snapshot:CoverageRule;
  reason:string; created_by:string; created_by_name:string; created_at:string; revoked_at:string|null; revoked_by?:string|null;
