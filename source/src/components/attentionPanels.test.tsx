@@ -19,7 +19,7 @@ it('separates unread broadcasts and request responses and opens the exact reques
  expect(requests[0].status).toBe('approved')
 })
 it('filters incidents and opens coverage or suspended-shift review with the matching date and consultation',async()=>{
- const issue:CoverageIssue={id:'a',date:'2026-10-05',consultationId:'EN1',title:'EN1 sin cubrir',detail:'0/1',severity:'critical',startTime:'08:00',endTime:'15:00',kind:'shortage',ruleId:'r'}
+ const issue:CoverageIssue={id:'a',date:'2026-10-05',consultationId:'EN1',title:'EN1 sin cubrir',detail:'0/1',severity:'critical',startTime:'08:00',endTime:'15:00',kind:'shortage',ruleId:'r',ruleSnapshot:{} as CoverageIssue['ruleSnapshot']}
  const suspended:CoverageIssue={...issue,id:'b',date:'2026-11-05',severity:'warning',title:'Turno suspendido',kind:'suspended'}
  const onAssign=vi.fn(),onCalendar=vi.fn()
  await render(<CoverageIssuesPanel issues={[issue,suspended]} onAssign={onAssign} onCalendar={onCalendar}/> )
