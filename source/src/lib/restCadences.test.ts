@@ -1,5 +1,5 @@
 import {describe,it,expect} from 'vitest'
-import {cadenceIntervals,restsOn} from './cadences'
+import {cadenceIntervals,restsOn,isScheduledRestInterval} from './cadences'
 import {cadenceAllows,cadenceWeekCapacity,suggestMonth, type SuggestionContext} from './suggestions'
 import {DEFAULT_PLANNING} from './planningConfig'
 import type {CoverageProfile,WorkCadence} from '../types'
@@ -19,6 +19,14 @@ describe('recurring rest',()=>{
   expect(restsOn(p,'2026-10-07','12:00','15:00')).toBe(false)
   expect(cadenceAllows(p,'2026-11-04','08:00','15:00')).toBe(true)
   expect(cadenceIntervals({...p,work_cadences:[rest]},'2026-10-07')).toEqual([])
+ })
+ it('shades free afternoon bands even when the morning is worked',()=>{
+  expect(isScheduledRestInterval(profile,'2026-11-05','08:00','15:00')).toBe(false)
+  expect(isScheduledRestInterval(profile,'2026-11-05','15:00','20:00')).toBe(true)
+  const afternoon={...profile,work_cadences:[{...work,start_time:'15:00',end_time:'20:00'}]}
+  expect(isScheduledRestInterval(afternoon,'2026-11-05','08:00','15:00')).toBe(true)
+  expect(isScheduledRestInterval(afternoon,'2026-11-05','15:00','20:00')).toBe(false)
+  expect(isScheduledRestInterval(profile,'2026-11-07','15:00','20:00')).toBe(false)
  })
  it('does not assign rest as mandatory work or use a resting substitute; preserves existing shifts with a warning',()=>{
   const ctx:SuggestionContext={fingerprint:'test',planning:DEFAULT_PLANNING,staff:['monica','daniela'].map(id=>({id,user_id:null,display_name:id,username:id,role:'professional',active:true,weekly_minutes:2100,mascot_key:'apple'})),consultations:[{id:'X',label:'X',short_label:'X',color:'#123',active:true,coverage_rules:[{...work,weekdays:[3],min_staff:1,monthly:false,suspensions:[],preferred_staff_ids:['daniela'],secondary_staff_ids:['monica']}]}],profiles:[profile,{...profile,staff_id:'daniela',work_cadences:[work]}],assignments:[{id:'for',professional_id:'daniela',work_date:'2026-10-07',consultation_id:'FOR',start_time:'08:00',end_time:'20:00',provisional:false}],requests:[],exceptions:[]}
