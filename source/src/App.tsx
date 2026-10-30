@@ -543,7 +543,7 @@ function BroadcastsView({ broadcasts, scheduled, staff, profile, isSupervisor, d
       if (error) { setFeedback('No se ha podido enviar el aviso. Inténtalo de nuevo.'); return }
       if (!editingId && createdId) {
         const { data: pushResult, error: pushError } = await supabase!.functions.invoke('et-send-push', { body: { broadcastId: createdId } })
-        if (pushError || pushResult?.error || pushResult?.failed) pushFailed = true
+        if (pushError || pushResult?.error || Number(pushResult?.failed??0)>0 || Number(pushResult?.sent??0)===0) pushFailed = true
       }
       await reload()
     }
