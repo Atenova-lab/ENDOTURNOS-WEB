@@ -1,4 +1,4 @@
-import {differenceInCalendarWeeks,getDay,parseISO} from 'date-fns'
+import {addDays,differenceInCalendarWeeks,getDay,parseISO,startOfWeek,format} from 'date-fns'
 import type {CoverageProfile,WorkCadence} from '../types'
 
 export function cadenceMatches(r:WorkCadence,date:string){
@@ -19,4 +19,16 @@ export function cadenceIntervals(profile:CoverageProfile|undefined,date:string){
   ])
  }
  return intervals
+}
+
+// A day without work is a scheduled rest when the professional has an active
+// work cadence elsewhere in the same week. Explicit rest rules also count.
+export function isScheduledRestDay(profile:CoverageProfile|undefined,date:string){
+ if(!profile?.work_cadences?.length)return false
+ if(restsOn(profile,date,'00:00','23:59'))return true
+ const weekday=getDay(parseISO(date))
+ if(weekday===0||weekday===6||cadenceIntervals(profile,date).length)return false
+ const monday=startOfWeek(parseISO(date),{weekStartsOn:1})
+ return Array.from({length:7},(_,i)=>format(addDays(monday,i),'yyyy-MM-dd'))
+  .some(day=>cadenceIntervals(profile,day).length>0)
 }
