@@ -11,7 +11,9 @@ export const supabase = isSupabaseConfigured
         persistSession: true,
         autoRefreshToken: true,
         detectSessionInUrl: true,
-        flowType: 'pkce',
+        // Static browser-only app: recovery links can open in a different browser from the requester.
+        // Implicit flow avoids the device-bound PKCE code verifier for emailed recovery links.
+        flowType: 'implicit',
       },
       realtime: { params: { eventsPerSecond: 10 } },
     })
