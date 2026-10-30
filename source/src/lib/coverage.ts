@@ -7,7 +7,7 @@ import { defaultCoverageRules, hasAbsence, overlaps } from './scheduling'
 export interface CoverageIssue {
   id: string; date: string; consultationId: string; title: string; detail: string
   severity: 'warning' | 'critical'; startTime: string; endTime: string
-  kind: 'shortage' | 'suspended'; ruleId: string; exceptionRule?: CoverageRule
+  kind: 'shortage' | 'suspended'; ruleId: string; ruleSnapshot: CoverageRule; exceptionRule?: CoverageRule
 }
 const iso = (d: Date) => format(d, 'yyyy-MM-dd')
 const isOpen = (date: string, rule: CoverageRule) => date >= rule.valid_from && date <= rule.valid_until && !rule.suspensions.some(s => date >= s.from && date <= s.to)
@@ -37,7 +37,7 @@ export function buildCoverageIssues(assignments: Assignment[], consultations: Co
         if(exceptionRule && exceptions.some(e=>!e.revoked_at&&e.work_date===date&&e.consultation_id===c.id&&e.rule_id===rule.id&&sameCoverageRule(e.rule_snapshot,rule)))return
         const label = rule.alternatives?.length ? [c.short_label,...rule.alternatives.map(id => consultations.find(c => c.id === id)?.short_label ?? id)].join('/') : c.label
         const reducedNote = minimum < rule.min_staff ? ` · Objetivo ${rule.min_staff}; mínimo permitido ${minimum}` : ''
-        issues.push({ id:`${date}-${rule.id}`,date,consultationId:c.id,ruleId:rule.id,exceptionRule,startTime:rule.start_time,endTime:rule.end_time,kind:'shortage',severity:count===0?'critical':'warning',title:plantOne?'Planta con una sola enfermera':monthly?`${label} mensual sin cobertura suficiente`:count===0?`${label} sin cubrir`:`${label}: cobertura insuficiente`,detail:`${count}/${minimum} profesionales mínimos · ${rule.start_time}–${rule.end_time}${monthly?' · Una sesión al mes':''}${reducedNote}${plantOne?'. Siempre que sea posible debe haber dos enfermeras.':''}`})
+        issues.push({ id:`${date}-${rule.id}`,date,consultationId:c.id,ruleId:rule.id,ruleSnapshot:rule,exceptionRule,startTime:rule.start_time,endTime:rule.end_time,kind:'shortage',severity:count===0?'critical':'warning',title:plantOne?'Planta con una sola enfermera':monthly?`${label} mensual sin cobertura suficiente`:count===0?`${label} sin cubrir`:`${label}: cobertura insuficiente`,detail:`${count}/${minimum} profesionales mínimos · ${rule.start_time}–${rule.end_time}${monthly?' · Una sesión al mes':''}${reducedNote}${plantOne?'. Siempre que sea posible debe haber dos enfermeras.':''}`})
       }
       if (rule.monthly) {
         for(let d=startOfMonth(parseISO(from)); iso(d)<=until; d=addDays(endOfMonth(d),1)) {
@@ -47,7 +47,7 @@ export function buildCoverageIssues(assignments: Assignment[], consultations: Co
       } else candidates.forEach(date=>{const count=coverage(date);if(count<minimum)report(date,count)})
       for(const a of assignments) if (a.consultation_id===c.id && a.work_date>=from && a.work_date<=until && rule.suspensions.some(s=>a.work_date>=s.from&&a.work_date<=s.to) && overlaps(a.start_time,a.end_time,rule.start_time,rule.end_time)) {
         if(issues.some(i=>i.id===`${a.id}-suspended`))continue
-        issues.push({id:`${a.id}-suspended`,date:a.work_date,consultationId:c.id,ruleId:rule.id,startTime:a.start_time.slice(0,5),endTime:a.end_time.slice(0,5),kind:'suspended',severity:'warning',title:`Turno en periodo suspendido: ${c.label}`,detail:`${a.start_time.slice(0,5)}–${a.end_time.slice(0,5)} · Revisa o elimina esta asignación.`,})
+        issues.push({id:`${a.id}-suspended`,date:a.work_date,consultationId:c.id,ruleId:rule.id,ruleSnapshot:rule,startTime:a.start_time.slice(0,5),endTime:a.end_time.slice(0,5),kind:'suspended',severity:'warning',title:`Turno en periodo suspendido: ${c.label}`,detail:`${a.start_time.slice(0,5)}–${a.end_time.slice(0,5)} · Revisa o elimina esta asignación.`,})
       }
     }
   }
