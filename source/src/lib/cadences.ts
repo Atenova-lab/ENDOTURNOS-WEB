@@ -21,6 +21,19 @@ export function cadenceIntervals(profile:CoverageProfile|undefined,date:string){
  return intervals
 }
 
+// Derive non-working morning/afternoon bands from the saved cadences.
+// This is recalculated every time a rota is displayed, including after suggestions.
+export function isScheduledRestInterval(profile:CoverageProfile|undefined,date:string,start:string,end:string){
+ if(!profile?.work_cadences?.length)return false
+ if(restsOn(profile,date,start,end))return true
+ const weekday=getDay(parseISO(date))
+ if(weekday===0||weekday===6)return false
+ if(cadenceIntervals(profile,date).some(r=>r.start_time<end&&r.end_time>start))return false
+ const monday=startOfWeek(parseISO(date),{weekStartsOn:1})
+ return Array.from({length:7},(_,i)=>format(addDays(monday,i),'yyyy-MM-dd'))
+  .some(day=>cadenceIntervals(profile,day).length>0)
+}
+
 // A day without work is a scheduled rest when the professional has an active
 // work cadence elsewhere in the same week. Explicit rest rules also count.
 export function isScheduledRestDay(profile:CoverageProfile|undefined,date:string){
