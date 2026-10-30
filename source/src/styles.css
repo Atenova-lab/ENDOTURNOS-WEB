@@ -1389,3 +1389,9 @@ box-shadow:0 10px 22px rgba(32,37,35,.16);transform:rotate(calc((var(--sheet-ind
 /* Descanso deducido de la cadencia semanal, visible también en agenda móvil. */
 .agenda-person.agenda-rest { background:var(--absence-bg-descanso,#e3e5e6);border-color:#c6cbcd; }
 .agenda-person.agenda-rest .agenda-empty { color:#4e5559;font-weight:600; }
+
+/* Compact, readable supervisor resolution action on desktop and mobile. */
+.review-issue-action { display:inline-flex; flex:0 1 250px; min-width:0; flex-direction:column; gap:4px; }
+.review-issue-action .soft-button { width:100%; max-width:none; white-space:normal; line-height:1.3; text-align:center; min-height:44px; }
+.review-issue-action .form-message { margin:0; font-size:12px; }
+@media(max-width:760px){ .review-issue-action { flex:1 1 100%; } }
