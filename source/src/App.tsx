@@ -14,7 +14,7 @@ import { buildDemoSchedule } from './data/demoSchedule'
 import { buildCoverageIssues, sameCoverageRule, type CoverageIssue } from './lib/coverage'
 import { isSupabaseConfigured, supabase } from './lib/supabase'
 import { disablePush, enablePush, getPushSubscription, pushAvailable } from './lib/push'
-import type { CoverageException, RotaPublication, LockedMonth, CoverageProfile, AssignmentHistory, Assignment, Consultation, MascotKey, PersonalTask, RequestStatus, RequestType, ShiftRequest, Staff, StaffCategory, TeamBroadcast, ScheduledBroadcast } from './types'
+import type { CoverageException, CoverageReview, RotaPublication, LockedMonth, CoverageProfile, AssignmentHistory, Assignment, Consultation, MascotKey, PersonalTask, RequestStatus, RequestType, ShiftRequest, Staff, StaffCategory, TeamBroadcast, ScheduledBroadcast } from './types'
 
 import ConsultationManager from './components/ConsultationManager'
 import SupervisorHome from './components/SupervisorHome'
@@ -178,6 +178,7 @@ function Workspace({ session, demo, onExitDemo }: { session: Session | null; dem
   }, [])
   const [calendarFocusDate, setCalendarFocusDate] = useState<string | null>(null)
   const [coverageExceptions,setCoverageExceptions]=useState<CoverageException[]>([])
+  const [coverageReviews,setCoverageReviews]=useState<CoverageReview[]>([])
   const [exceptionIssue,setExceptionIssue]=useState<CoverageIssue|null>(null)
   const [coverageProfiles, setCoverageProfiles] = useState<CoverageProfile[]>([])
   const [history, setHistory] = useState<AssignmentHistory[]>([])
@@ -203,7 +204,7 @@ function Workspace({ session, demo, onExitDemo }: { session: Session | null; dem
     const config=storedConfig.start_date==='2026-10-01'&&storedConfig.end_date==='2026-12-31'?{...storedConfig,start_date:'2026-01-01',end_date:'2026-12-31'}:storedConfig
     const readAssignments=async(table:string)=>{const rows:Assignment[]=[];for(let offset=0;;offset+=500){const result=await supabase!.from(table).select('*').order('id').range(offset,offset+499);if(result.error)return {data:null,error:result.error};rows.push(...result.data as Assignment[]);if(result.data.length<500)return {data:rows,error:null}}}
     const supervisor = s.data?.find(p => p.user_id === session.user.id)?.role === 'supervisor'
-    const [c, a, r, t, b, h, cp, pub, published, exceptions, scheduled, locks] = await Promise.all([
+    const [c, a, r, t, b, h, cp, pub, published, exceptions, reviews, scheduled, locks] = await Promise.all([
       supabase.from('et_consultations').select('*').eq('active', true).order('sort_order'),
       readAssignments(supervisor ? 'et_assignments' : 'et_published_assignments'),
       supabase.from('et_requests').select('*').order('created_at', { ascending: false }),
@@ -214,15 +215,17 @@ function Workspace({ session, demo, onExitDemo }: { session: Session | null; dem
       supabase.from('et_rota_publications').select('*'),
       readAssignments('et_published_assignments'),
       supervisor ? supabase.from('et_coverage_exceptions').select('*').order('created_at',{ascending:false}) : Promise.resolve({data:[],error:null}),
+      supervisor ? supabase.from('et_coverage_reviews').select('*').order('reviewed_at',{ascending:false}) : Promise.resolve({data:[],error:null}),
       supervisor ? supabase.from('et_scheduled_broadcasts').select('*').order('next_run_at') : Promise.resolve({data:[],error:null}),
       supabase.from('et_locked_months').select('*'),
     ])
     if(sequence!==loadSequence.current)return
-    const failed = [s,c,a,r,t,b,h,cp,pub,published,exceptions,scheduled,locks].find(result => result.error)
+    const failed = [s,c,a,r,t,b,h,cp,pub,published,exceptions,reviews,scheduled,locks].find(result => result.error)
     if (failed?.error) { setLoadError('No se han podido actualizar todos los datos. Pulsa Reintentar.'); return }
     setLoadError('')
     setPlanning(config)
     setCoverageExceptions((exceptions.data??[]) as CoverageException[])
+    setCoverageReviews((reviews.data??[]) as CoverageReview[])
     setScheduledBroadcasts((scheduled.data??[]) as ScheduledBroadcast[])
     setPublications((pub.data??[]) as RotaPublication[])
     setLockedMonths((locks.data??[]) as LockedMonth[])
@@ -249,6 +252,7 @@ function Workspace({ session, demo, onExitDemo }: { session: Session | null; dem
       .on('postgres_changes', { event: '*', schema: 'public', table: 'et_rota_publications' }, loadData)
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'et_locked_months' }, loadData)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'et_coverage_exceptions' }, loadData)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'et_coverage_reviews' }, loadData)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'et_planning_settings' }, loadData)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'et_consultations' }, loadData)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'et_staff' }, loadData)
@@ -269,8 +273,8 @@ function Workspace({ session, demo, onExitDemo }: { session: Session | null; dem
     : request.professional_id === profile.id && !request.professional_seen_at).map(request => request.id) : [], [profile, requests])
   const notificationIds = useMemo(() => [...broadcastNotificationIds.map(id => `broadcast:${id}`), ...requestNotificationIds.map(id => `request:${id}`)], [broadcastNotificationIds, requestNotificationIds])
   const coverageIssues = useMemo(() => profile?.role === 'supervisor'
-    ? buildCoverageIssues(assignments, consultations, requests, undefined, undefined, coverageExceptions)
-    : [], [assignments, consultations, coverageExceptions, profile?.role, requests])
+    ? buildCoverageIssues(assignments, consultations, requests, undefined, undefined, coverageExceptions).filter(issue=>!coverageReviews.some(review=>!review.reopened_at&&review.issue_id===issue.id&&sameCoverageRule(review.rule_snapshot,issue.ruleSnapshot)))
+    : [], [assignments, consultations, coverageExceptions, coverageReviews, profile?.role, requests])
   useEffect(() => {
     if (!dataLoaded) return
     const current = new Set(notificationIds)
@@ -383,6 +387,23 @@ function Workspace({ session, demo, onExitDemo }: { session: Session | null; dem
     if(!data?.length){await loadData();return 'La excepción ya ha cambiado. Se han actualizado los datos.'}
     setCoverageExceptions(rows=>rows.map(e=>e.id===id?data[0] as CoverageException:e));await loadData();return null
   }
+  const reviewCoverageIssue=async(issue:CoverageIssue):Promise<string|null>=>{
+    const current=buildCoverageIssues(assignments,consultations,requests,undefined,undefined,coverageExceptions).find(i=>i.id===issue.id)
+    if(!current||!sameCoverageRule(current.ruleSnapshot,issue.ruleSnapshot))return 'La incidencia ha cambiado. Actualiza el cuadrante antes de revisarla.'
+    const content={issue_id:issue.id,work_date:issue.date,consultation_id:issue.consultationId,rule_id:issue.ruleId,rule_snapshot:issue.ruleSnapshot}
+    if(demo){setCoverageReviews(rows=>[{...content,id:crypto.randomUUID(),created_by:activeProfile.user_id??'demo',created_by_name:activeProfile.display_name,reviewed_at:new Date().toISOString(),reopened_at:null},...rows]);return null}
+    const {data,error}=await supabase!.from('et_coverage_reviews').insert(content).select('*').single()
+    if(error)return error.code==='23505'?'La incidencia ya se había revisado. Actualiza los datos.':error.message
+    if(!data)return 'No se ha podido guardar la revisión.'
+    setCoverageReviews(rows=>[data as CoverageReview,...rows]);await loadData();return null
+  }
+  const reopenCoverageIssue=async(id:string):Promise<string|null>=>{
+    if(demo){setCoverageReviews(rows=>rows.map(r=>r.id===id?{...r,reopened_at:new Date().toISOString()}:r));return null}
+    const {data,error}=await supabase!.from('et_coverage_reviews').update({reopened_at:new Date().toISOString()}).eq('id',id).is('reopened_at',null).select('*')
+    if(error)return error.message
+    if(!data?.length){await loadData();return 'La revisión ya ha cambiado. Se han actualizado los datos.'}
+    setCoverageReviews(rows=>rows.map(r=>r.id===id?data[0] as CoverageReview:r));await loadData();return null
+  }
   const savePlanning=async(next:PlanningConfig):Promise<string|null>=>{
     if(demo){setPlanning({...next,updated_at:new Date().toISOString()});setCalendarFocusDate(null);setShiftSelection(null);return null}
     const {data,error}=await supabase!.from('et_planning_settings').update({start_date:next.start_date,end_date:next.end_date,holidays:next.holidays}).eq('id',1).eq('updated_at',next.updated_at).select('*')
@@ -409,11 +430,11 @@ function Workspace({ session, demo, onExitDemo }: { session: Session | null; dem
       {unreadTotal > 0 && view!=='notifications' && (isSupervisor||view!=='home') && <div className="notification-strip" aria-label="Notificaciones nuevas">{unreadBroadcasts > 0 && view !== 'broadcasts' && <button className="unread-banner" onClick={() => setView('broadcasts')}><Megaphone size={18} /><span>{unreadBroadcasts === 1 ? '1 aviso nuevo' : `${unreadBroadcasts} avisos nuevos`}</span><strong>Ver avisos</strong></button>}{unreadRequests > 0 && view !== 'requests' && <button className="unread-banner request-alert" onClick={() => setView('requests')}><Bell size={18} /><span>{unreadRequests === 1 ? '1 novedad en solicitudes' : `${unreadRequests} novedades en solicitudes`}</span><strong>Ver solicitudes</strong></button>}</div>}
       {view === 'home' && <HomeTaskStrip tasks={tasks} profile={activeProfile} demo={demo} onChange={setTasks} reload={loadData} onOpenTasks={() => { setTaskComposerNonce(value => value + 1); setView('tasks') }} />}
       {view === 'home' && isSupervisor && <div className="publication-panel draft"><div><div><strong>Planificación en borrador</strong><p>Los cambios que guardes solo los verá el equipo cuando publiques el mes.</p></div></div><button className="soft-button" onClick={()=>openCalendar(calendarFocusDate??planning.start_date)}>Revisar publicación</button></div>}
-      {view === 'home' && isSupervisor && <SupervisorHome onException={setExceptionIssue} staff={staff} consultations={consultations} assignments={assignments} requests={requests} issues={coverageIssues} profile={activeProfile} onAssign={setShiftSelection} onCalendar={openCalendar} onRequest={openRequest} onBroadcast={()=>setView('broadcasts')} onTeam={()=>setView('team')} />}
+      {view === 'home' && isSupervisor && <SupervisorHome onReview={reviewCoverageIssue} onException={setExceptionIssue} staff={staff} consultations={consultations} assignments={assignments} requests={requests} issues={coverageIssues} profile={activeProfile} onAssign={setShiftSelection} onCalendar={openCalendar} onRequest={openRequest} onBroadcast={()=>setView('broadcasts')} onTeam={()=>setView('team')} />}
       {view === 'home' && !isSupervisor && <ProfessionalHome profile={activeProfile} publishedAssignments={publishedAssignments} consultations={consultations} requests={requests} broadcasts={broadcasts} today={currentDay} onCalendar={openCalendar} onBroadcasts={()=>setView('broadcasts')} onRequest={openRequest}/> }
-      {view === 'calendar' && <CalendarPanel history={history} onUndo={undoAssignment} suggestionContext={{staff,consultations,assignments,requests,profiles:coverageProfiles,exceptions:coverageExceptions,planning,fingerprint:'demo'}} onSuggestionSaved={async rows=>{if(demo){const added=rows.map(a=>({...a,id:crypto.randomUUID(),updated_at:new Date().toISOString()}));setAssignments(current=>[...current,...added]);added.forEach(a=>addHistory(null,a))}else await loadData()}} onConsultations={()=>setView('consultations')} key={planning.start_date+planning.end_date} onException={setExceptionIssue} demo={demo} publications={publications} publishedAssignments={publishedAssignments} lockedMonths={lockedMonths} onLock={lockMonth} onPublish={publishRota} onClearMonth={clearMonthAssignments} onRestoreMonth={restoreMonthAssignments} staff={staff.filter(s=>s.active&&s.role==='professional')} assignments={assignments} consultations={consultations} profile={activeProfile} isSupervisor={isSupervisor} issues={coverageIssues} focusDate={calendarFocusDate} onSelect={setShiftSelection} requests={requests} coverageProfiles={coverageProfiles} syncedAt={syncedAt} onCopy={copyAssignments} onRequest={id=>openRequest(id)} />}
+      {view === 'calendar' && <CalendarPanel onReview={reviewCoverageIssue} history={history} onUndo={undoAssignment} suggestionContext={{staff,consultations,assignments,requests,profiles:coverageProfiles,exceptions:coverageExceptions,planning,fingerprint:'demo'}} onSuggestionSaved={async rows=>{if(demo){const added=rows.map(a=>({...a,id:crypto.randomUUID(),updated_at:new Date().toISOString()}));setAssignments(current=>[...current,...added]);added.forEach(a=>addHistory(null,a))}else await loadData()}} onConsultations={()=>setView('consultations')} key={planning.start_date+planning.end_date} onException={setExceptionIssue} demo={demo} publications={publications} publishedAssignments={publishedAssignments} lockedMonths={lockedMonths} onLock={lockMonth} onPublish={publishRota} onClearMonth={clearMonthAssignments} onRestoreMonth={restoreMonthAssignments} staff={staff.filter(s=>s.active&&s.role==='professional')} assignments={assignments} consultations={consultations} profile={activeProfile} isSupervisor={isSupervisor} issues={coverageIssues} focusDate={calendarFocusDate} onSelect={setShiftSelection} requests={requests} coverageProfiles={coverageProfiles} syncedAt={syncedAt} onCopy={copyAssignments} onRequest={id=>openRequest(id)} />}
       {view === 'notifications' && <NotificationsPanel broadcasts={broadcasts.filter(b=>broadcastNotificationIds.includes(b.id))} requests={requests.filter(r=>requestNotificationIds.includes(r.id))} onBroadcasts={()=>setView('broadcasts')} onRequest={openRequest}/>}
-      {view === 'incidents' && isSupervisor && <CoverageIssuesPanel onException={setExceptionIssue} exceptions={coverageExceptions} onRevoke={revokeCoverageException} issues={coverageIssues} onAssign={setShiftSelection} onCalendar={openCalendar}/>}
+      {view === 'incidents' && isSupervisor && <CoverageIssuesPanel onReview={reviewCoverageIssue} onReopen={reopenCoverageIssue} reviews={coverageReviews} onException={setExceptionIssue} exceptions={coverageExceptions} onRevoke={revokeCoverageException} issues={coverageIssues} onAssign={setShiftSelection} onCalendar={openCalendar}/>}
       {view === 'broadcasts' && <BroadcastsView broadcasts={broadcasts} scheduled={scheduledBroadcasts} staff={staff} profile={activeProfile} isSupervisor={isSupervisor} demo={demo} onChange={setBroadcasts} onScheduledChange={setScheduledBroadcasts} reload={loadData} />}
       {view === 'requests' && <RequestsPanel consultations={consultations} publishedAssignments={publishedAssignments} onCalendar={openCalendar} onReassign={assignment=>setShiftSelection({date:assignment.work_date,personId:assignment.professional_id,consultationId:assignment.consultation_id,startTime:assignment.start_time,endTime:assignment.end_time,assignmentId:assignment.id,findCoverage:true})} requests={requests} unreadIds={requestNotificationIds} staff={staff} profile={activeProfile} isSupervisor={isSupervisor} demo={demo} onChange={setRequests} reload={loadData} assignments={assignments} focusId={requestFocus} />}
       {view === 'history' && isSupervisor && <HistoryPanel history={history} staff={staff} consultations={consultations} assignments={assignments} requests={requests} onUndo={undoAssignment} />}
